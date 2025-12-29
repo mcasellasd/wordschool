@@ -1,0 +1,127 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Enums com a String per compatibilitat amb SQLite
+
+// Alumnes
+model Student {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  name              String
+  surname           String?
+  currentLevel      String? // A2, B1, B2
+  academyId         String?
+  avatar            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relacions
+  examSubmissions   ExamSubmission[]
+  courses           CourseStudent[]
+  
+  @@map("students")
+}
+
+// Professors
+model Teacher {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  surname   String?
+  academyId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relacions
+  exams     Exam[]
+  courses   Course[]
+  
+  @@map("teachers")
+}
+
+// Cursos
+model Course {
+  id          String   @id @default(cuid())
+  name        String
+  level       String // A2, B1, B2
+  academyId   String?
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacions
+  exams       Exam[]
+  students    CourseStudent[]
+  
+  @@map("courses")
+}
+
+// Relació entre Cursos i Alumnes (many-to-many)
+model CourseStudent {
+  id        String   @id @default(cuid())
+  courseId String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime @default(now())
+  
+  @@unique([courseId, studentId])
+  @@map("course_students")
+}
+
+// Exàmens
+model Exam {
+  id              String      @id @default(cuid())
+  title           String
+  courseId        String?
+  course          Course?     @relation(fields: [courseId], references: [id])
+  level           String // A2, B1, B2
+  teacherId       String
+  teacher         Teacher     @relation(fields: [teacherId], references: [id])
+  totalPoints     Int         @default(100)
+  oxfordReference String?
+  status          String      @default("draft") // draft, published, closed
+  dueDate         DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relacions
+  submissions     ExamSubmission[]
+  
+  @@map("exams")
+}
+
+// Pujades d'exàmens pels alumnes
+model ExamSubmission {
+  id              String           @id @default(cuid())
+  examId          String
+  exam            Exam             @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  imageUrl        String
+  ocrText         String?
+  ocrConfidence   Float?
+  ocrProcessed    Boolean          @default(false)
+  needsReview     Boolean          @default(false)
+  status          String           @default("uploaded") // uploaded, ocr_processing, ocr_completed, needs_review, ready_to_grade, graded
+  totalScore      Float?
+  teacherComments String?
+  submittedAt     DateTime         @default(now())
+  gradedAt        DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  @@map("exam_submissions")
+}
