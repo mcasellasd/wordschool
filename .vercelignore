@@ -1,0 +1,7 @@
+# Fitxers a ignorar al deploy de Vercel
+node_modules
+.next
+.env.local
+*.log
+.DS_Store
+
