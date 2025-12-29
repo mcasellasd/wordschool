@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
 
 // Configuració
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -24,22 +22,11 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('examImage') as File;
-    const examId = formData.get('examId') as string | null;
-    const studentId = formData.get('studentId') as string | null;
-    const level = formData.get('level') as string | null;
 
     // Validar que hi ha un fitxer
     if (!file) {
       return NextResponse.json(
         { error: 'No s\'ha pujat cap fitxer' },
-        { status: 400 }
-      );
-    }
-
-    // Validar que hi ha examId i studentId (abans de processar el fitxer)
-    if (!examId || !studentId) {
-      return NextResponse.json(
-        { error: 'Has de seleccionar un examen i un alumne' },
         { status: 400 }
       );
     }
@@ -75,66 +62,12 @@ export async function POST(request: NextRequest) {
     // URL pública del fitxer
     const fileUrl = `/uploads/exams/${fileName}`;
 
-    // Verificar que l'examen i l'alumne existeixen
-    const exam = await prisma.exam.findUnique({
-      where: { id: examId },
-    });
-
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-    });
-
-    if (!exam) {
-      return NextResponse.json(
-        { error: 'Examen no trobat' },
-        { status: 404 }
-      );
-    }
-
-    if (!student) {
-      return NextResponse.json(
-        { error: 'Alumne no trobat' },
-        { status: 404 }
-      );
-    }
-
-    // Crear registre a la base de dades
-    const submission = await prisma.examSubmission.create({
-      data: {
-        examId,
-        studentId,
-        imageUrl: fileUrl,
-        status: 'uploaded',
-        ocrProcessed: false,
-      },
-      include: {
-        exam: {
-          select: {
-            title: true,
-            level: true,
-          },
-        },
-        student: {
-          select: {
-            name: true,
-            surname: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    // TODO: Aquí s'iniciaria el processament OCR de forma asíncrona
-    // await processOCRAsync(submission.id, filePath);
-
     return NextResponse.json({
       success: true,
-      submissionId: submission.id,
       fileUrl,
-      message: 'Examen pujat correctament. Processant OCR...',
       fileName: file.name,
       fileSize: file.size,
-      submission,
+      message: 'Fitxer pujat correctament',
     });
   } catch (error: any) {
     console.error('Error pujant fitxer:', error);
@@ -146,7 +79,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Nota: A Next.js 14 App Router, no cal exportar config
-// El bodyParser es gestiona automàticament amb FormData
 

@@ -1,7 +1,80 @@
 import { NextResponse } from 'next/server';
 import { ExamSubmission, EnglishLevel } from '@/types';
+import { prisma } from '@/lib/prisma';
 
-// Mock data - En producció, això vindria de la base de dades
+// POST - Crear una nova submission
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { examId, studentId, imageUrl, status, ocrProcessed } = body;
+
+    if (!examId || !studentId || !imageUrl) {
+      return NextResponse.json(
+        { error: 'examId, studentId i imageUrl són obligatoris' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar que l'examen i l'alumne existeixen
+    const exam = await prisma.exam.findUnique({
+      where: { id: examId },
+    });
+
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+    });
+
+    if (!exam) {
+      return NextResponse.json(
+        { error: 'Examen no trobat' },
+        { status: 404 }
+      );
+    }
+
+    if (!student) {
+      return NextResponse.json(
+        { error: 'Alumne no trobat' },
+        { status: 404 }
+      );
+    }
+
+    // Crear registre a la base de dades
+    const submission = await prisma.examSubmission.create({
+      data: {
+        examId,
+        studentId,
+        imageUrl,
+        status: status || 'uploaded',
+        ocrProcessed: ocrProcessed || false,
+      },
+      include: {
+        exam: {
+          select: {
+            title: true,
+            level: true,
+          },
+        },
+        student: {
+          select: {
+            name: true,
+            surname: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(submission, { status: 201 });
+  } catch (error: any) {
+    console.error('Error creating submission:', error);
+    return NextResponse.json(
+      { error: 'Error al crear la submission' },
+      { status: 500 }
+    );
+  }
+}
+
+// GET - Llista de submissions (mock data per ara)
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
